@@ -23,6 +23,7 @@ import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.preference.PreferenceManager;
+import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.util.Pair;
 import android.view.Gravity;
@@ -182,7 +183,7 @@ public abstract class AdView extends FrameLayout implements AdViewListener {
             Clog.e(Clog.baseLogTag, Clog.getString(R.string.already_expanded));
             return false;
         }
-        if (placementID == null || placementID.isEmpty()) {
+        if (TextUtils.isEmpty(placementID)) {
             Clog.e(Clog.baseLogTag, Clog.getString(R.string.no_placement_id));
             return false;
         }
@@ -546,7 +547,7 @@ public abstract class AdView extends FrameLayout implements AdViewListener {
      * @param value keyword value, cannot be null
      */
     public void addCustomKeywords(String key, String value) {
-        if ((key == null) || (key.isEmpty()) || (value == null)) {
+        if (TextUtils.isEmpty(key) || TextUtils.isEmpty(value)) {
             return;
         }
         customKeywords.add(new Pair<String, String>(key, value));
@@ -571,7 +572,7 @@ public abstract class AdView extends FrameLayout implements AdViewListener {
      * @param key keyword name to remove, cannot be null or empty
      */
     public void removeCustomKeyword(String key) {
-        if ((key == null) || (key.isEmpty()))
+        if (TextUtils.isEmpty(key))
             return;
 
         for (int i = 0; i < customKeywords.size(); i++) {

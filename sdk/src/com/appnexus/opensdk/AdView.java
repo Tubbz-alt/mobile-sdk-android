@@ -30,11 +30,13 @@ import android.view.View;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
+
 import com.appnexus.opensdk.utils.Clog;
 import com.appnexus.opensdk.utils.Settings;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.Map;
 
 /**
  * The parent class of InterstitialAdView and BannerAdView. This can not be
@@ -548,6 +550,20 @@ public abstract class AdView extends FrameLayout implements AdViewListener {
             return;
         }
         customKeywords.add(new Pair<String, String>(key, value));
+    }
+    
+    /**
+     * add a custom keyword to the request url for the ad
+     * @param map keyword values, cannot be null
+     */
+    public void addCustomKeywords(Map<String, String> map) {
+        if ((map == null) || (map.isEmpty())) {
+            return;
+        }
+        
+		for (Map.Entry<String, String> entry : map.entrySet()){
+			addCustomKeywords(entry.getKey(), entry.getValue());
+		}
     }
 
     /**

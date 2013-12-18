@@ -1,7 +1,11 @@
 *.class
 bin/
-*.iml
-*.idea
-*local.properties
+.iml
+.idea
+local.properties
 .gradle/
-*target/
+target/
+.DS_Store
+out/
+gen/
+doc/

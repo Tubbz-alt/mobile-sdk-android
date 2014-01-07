@@ -12,7 +12,7 @@
 	<groupId>com.shazam.appnexus</groupId>
 	<artifactId>appnexus-parent</artifactId>
 	<packaging>pom</packaging>
-	<version>1.6.2-SNAPSHOT</version>
+	<version>1.7.1</version>
 
 	<name>AppNexus (Parent)</name>
 

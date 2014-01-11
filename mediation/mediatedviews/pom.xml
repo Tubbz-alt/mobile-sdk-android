@@ -3,13 +3,13 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<artifactId>sdk</artifactId>
+	<artifactId>mediatedviews</artifactId>
 	<name>AppNexus Android SDK</name>
 	<packaging>apklib</packaging>
 
 	<parent>
 		<groupId>com.shazam.appnexus</groupId>
-		<artifactId>appnexus-parent</artifactId>
+		<artifactId>mediation</artifactId>
 		<version>1.7.2-SNAPSHOT</version>
 		<relativePath>../pom.xml</relativePath>
 	</parent>
@@ -20,6 +20,32 @@
 			<artifactId>android</artifactId>
 			<scope>provided</scope>
 		</dependency>
+		<dependency>
+			<groupId>com.google.android.admob</groupId>
+  			<artifactId>admob</artifactId>
+ 			<version>6.4.1</version>
+ 			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.google.ads.mediation</groupId>
+			<artifactId>millennial</artifactId>
+			<version>5.1.0</version>
+ 			<scope>compile</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.millennialmedia.android</groupId>
+			<artifactId>sdk</artifactId>
+			<version>5.1.0</version>
+ 			<scope>compile</scope>
+		</dependency>	
+
+		<dependency>
+			<groupId>com.shazam.appnexus</groupId>
+			<artifactId>sdk</artifactId>
+			<version>1.7.2-SNAPSHOT</version>
+			<type>apklib</type>
+		</dependency>	
+	
 	</dependencies>
 
 	<build>
@@ -40,28 +66,6 @@
 				<artifactId>maven-javadoc-plugin</artifactId>
 				<configuration>
 					<skip>true</skip>
-				</configuration>
-			</plugin>
-
-			<plugin>
-				<groupId>com.google.code.maven-replacer-plugin</groupId>
-				<artifactId>maven-replacer-plugin</artifactId>
-				<version>1.4.0</version>
-				<executions>
-					<execution>
-						<phase>process-sources</phase>
-						<goals>
-							<goal>replace</goal>
-						</goals>
-					</execution>
-				</executions>
-				<configuration>
-					<ignoreMissingFile>false</ignoreMissingFile>
-					<file>target/generated-sources/r/com/appnexus/opensdk/R.java</file>
-					<outputFile>target/generated-sources/r/com/appnexus/opensdk/R.java</outputFile>
-					<regex>false</regex>
-					<token>static final int</token>
-					<value>static int</value>
 				</configuration>
 			</plugin>
 

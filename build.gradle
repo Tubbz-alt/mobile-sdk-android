@@ -1,6 +1,5 @@
 apply plugin: 'maven'
 
-
 buildscript {
     repositories {
 
@@ -16,7 +15,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:0.6.+'
+        classpath 'com.android.tools.build:gradle:0.7.+'
     }
 }
 
@@ -28,7 +27,15 @@ allprojects {
     group = GROUP
     version = VERSION_NAME
 
-    repositories {
+ repositories {
+        maven {
+            url nexusRepositoryUrl
+            credentials {
+                username nexusUsername
+                password nexusPassword
+            }
+        }
+
         mavenCentral()
     }
 
@@ -36,5 +43,3 @@ allprojects {
         options.encoding = "UTF-8"
     }
 }
-
-apply plugin: 'android-reporting'

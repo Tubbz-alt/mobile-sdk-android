@@ -23,6 +23,10 @@ android {
 	    compile 'com.millennialmedia.android:sdk:5.1.0'
     	compile project(':sdk')
 	}
+	
+  	lintOptions {
+    	abortOnError false
+   	}
 
 }
 

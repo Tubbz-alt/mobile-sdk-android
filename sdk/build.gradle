@@ -16,6 +16,10 @@ android {
         main.resources.srcDir 'src'
         instrumentTest.java.srcDir 'tests/src'
     }
+    
+   	lintOptions {
+    	abortOnError false
+   	}
 }
 
 apply from: '../gradle-mvn-push.gradle'

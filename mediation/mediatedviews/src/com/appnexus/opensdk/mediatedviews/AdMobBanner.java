@@ -16,6 +16,7 @@
 package com.appnexus.opensdk.mediatedviews;
 
 import android.app.Activity;
+import android.os.Bundle;
 import android.util.Pair;
 import android.view.View;
 
@@ -24,13 +25,12 @@ import com.appnexus.opensdk.MediatedBannerAdView;
 import com.appnexus.opensdk.MediatedBannerAdViewController;
 import com.appnexus.opensdk.TargetingParameters;
 import com.appnexus.opensdk.utils.Clog;
-import com.google.ads.Ad;
-import com.google.ads.AdListener;
-import com.google.ads.AdRequest;
-import com.google.ads.AdRequest.ErrorCode;
-import com.google.ads.AdSize;
-import com.google.ads.AdView;
-import com.google.ads.mediation.admob.AdMobAdapterExtras;
+import com.google.android.gms.ads.AdListener;
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.AdSize;
+import com.google.android.gms.ads.AdView;
+import com.google.android.gms.ads.mediation.admob.AdMobExtras;
+import com.google.android.gms.plus.model.people.Person;
 
 /**
  * This class is the Google AdMob banner adaptor it provides the functionality needed to allow
@@ -42,7 +42,69 @@ import com.google.ads.mediation.admob.AdMobAdapterExtras;
  * SDK.
  *
  */
-public class AdMobBanner implements MediatedBannerAdView, AdListener {
+public class AdMobBanner implements MediatedBannerAdView {
+
+    private final AdListener adListener = new AdListener() {
+        @Override
+        public void onAdClosed() {
+            super.onAdClosed();
+            Clog.d(Clog.mediationLogTag, "AdMobBanner - onAdClosed");
+        }
+
+        @Override
+        public void onAdFailedToLoad(int errorCode) {
+            super.onAdFailedToLoad(errorCode);
+            Clog.d(Clog.mediationLogTag, String.format("AdMobBanner - onAdFailedToLoad: errorCode: %s", errorCode));
+
+            MediatedAdViewController.RESULT code = MediatedAdViewController.RESULT.INTERNAL_ERROR;
+
+            switch (errorCode) {
+                case AdRequest.ERROR_CODE_INTERNAL_ERROR:
+                    code = MediatedAdViewController.RESULT.INTERNAL_ERROR;
+                    break;
+                case AdRequest.ERROR_CODE_INVALID_REQUEST:
+                    code = MediatedAdViewController.RESULT.INVALID_REQUEST;
+                    break;
+                case AdRequest.ERROR_CODE_NETWORK_ERROR:
+                    code = MediatedAdViewController.RESULT.NETWORK_ERROR;
+                    break;
+                case AdRequest.ERROR_CODE_NO_FILL:
+                    code = MediatedAdViewController.RESULT.UNABLE_TO_FILL;
+                    break;
+                default:
+                    break;
+            }
+
+            if (mMediatedBannerAdViewController != null) {
+                mMediatedBannerAdViewController.onAdFailed(code);
+            }
+        }
+
+        @Override
+        public void onAdLeftApplication() {
+            super.onAdLeftApplication();
+            Clog.d(Clog.mediationLogTag, "AdMobBanner - onAdLeftApplication");
+            if (mMediatedBannerAdViewController != null) {
+                mMediatedBannerAdViewController.onAdClicked();
+            }
+        }
+
+        @Override
+        public void onAdOpened() {
+            super.onAdOpened();
+            Clog.d(Clog.mediationLogTag, "AdMobBanner - onAdOpened");
+        }
+
+        @Override
+        public void onAdLoaded() {
+            super.onAdLoaded();
+            Clog.d(Clog.mediationLogTag, "AdMobBanner - onAdLoaded");
+            if (mMediatedBannerAdViewController != null) {
+                mMediatedBannerAdViewController.onAdLoaded();
+            }
+        }
+    };
+
     private MediatedBannerAdViewController mMediatedBannerAdViewController;
 
     public AdMobBanner() {
@@ -53,7 +115,7 @@ public class AdMobBanner implements MediatedBannerAdView, AdListener {
      * Interface called by the AN SDK to request an ad from the mediating SDK.
      *
      * @param mBC the object which will be called with events from the 3d party SDK
-     * @param Activity the activity from which this is launched
+     * @param activity the activity from which this is launched
      * @param parameter String parameter received from the server for instantiation of this object
      * @param adUnitID The 3rd party placement , in adMob this is the adUnitID
      * @param width Width of the ad
@@ -64,93 +126,42 @@ public class AdMobBanner implements MediatedBannerAdView, AdListener {
                           int width, int height, TargetingParameters targetingParameters) {
         Clog.d(Clog.mediationLogTag, String.format("AdMobBanner - requesting an ad: [%s, %s, %dx%d]", parameter, adUnitID, width, height));
 
-        AdView admobAV = new AdView(activity, new AdSize(width, height), adUnitID);
-        admobAV.setAdListener(this);
-        AdRequest ar = new AdRequest();
+        AdView admobAV = new AdView(activity);
+        admobAV.setAdSize(new AdSize(width, height));
+        admobAV.setAdUnitId(adUnitID);
+
+        admobAV.setAdListener(adListener);
+        AdRequest.Builder builder = new AdRequest.Builder();
 
 
         switch(targetingParameters.getGender()){
             case UNKNOWN:
                 break;
             case FEMALE:
-                ar.setGender(AdRequest.Gender.FEMALE);
+                builder.setGender(Person.Gender.FEMALE);
                 break;
             case MALE:
-                ar.setGender(AdRequest.Gender.MALE);
+                builder.setGender(Person.Gender.MALE);
                 break;
         }
-        AdMobAdapterExtras extras = new AdMobAdapterExtras();
+
+        final Bundle bundle = new Bundle();
         if(targetingParameters.getAge()!=null){
-            extras.addExtra("Age", targetingParameters.getAge());
+            bundle.putString("Age", targetingParameters.getAge());
         }
 
         for(Pair<String, String> p : targetingParameters.getCustomKeywords()){
-            extras.addExtra(p.first, p.second);
+            bundle.putString(p.first, p.second);
         }
-        if(targetingParameters.getLocation()!=null){
-            ar.setLocation(targetingParameters.getLocation());
-        }
-        ar.setNetworkExtras(extras);
 
+        builder.addNetworkExtras(new AdMobExtras(bundle));
+        if(targetingParameters.getLocation()!=null){
+            builder.setLocation(targetingParameters.getLocation());
+        }
         mMediatedBannerAdViewController = mBC;
 
-        admobAV.loadAd(ar);
+        admobAV.loadAd(builder.build());
         return admobAV;
-    }
-
-    @Override
-    public void onDismissScreen(Ad arg0) {
-        Clog.d(Clog.mediationLogTag, "AdMobBanner - onDismissScreen: " + arg0);
-    }
-
-    @Override
-    public void onFailedToReceiveAd(Ad arg0, ErrorCode arg1) {
-        Clog.d(Clog.mediationLogTag, String.format("AdMobBanner - onFailedToReceiveAd: %s with error: %s", arg0, arg1));
-
-        MediatedAdViewController.RESULT code = MediatedAdViewController.RESULT.INTERNAL_ERROR;
-
-        switch (arg1) {
-            case INTERNAL_ERROR:
-                code = MediatedAdViewController.RESULT.INTERNAL_ERROR;
-                break;
-            case INVALID_REQUEST:
-                code = MediatedAdViewController.RESULT.INVALID_REQUEST;
-                break;
-            case NETWORK_ERROR:
-                code = MediatedAdViewController.RESULT.NETWORK_ERROR;
-                break;
-            case NO_FILL:
-                code = MediatedAdViewController.RESULT.UNABLE_TO_FILL;
-                break;
-            default:
-                break;
-        }
-
-        if (mMediatedBannerAdViewController != null) {
-            mMediatedBannerAdViewController.onAdFailed(code);
-        }
-    }
-
-    @Override
-    public void onLeaveApplication(Ad arg0) {
-        Clog.d(Clog.mediationLogTag, "AdMobBanner - onLeaveApplication: " + arg0);
-        if (mMediatedBannerAdViewController != null) {
-            mMediatedBannerAdViewController.onAdClicked();
-        }
-
-    }
-
-    @Override
-    public void onPresentScreen(Ad arg0) {
-        Clog.d(Clog.mediationLogTag, "AdMobBanner - onPresentScreen: " + arg0);
-    }
-
-    @Override
-    public void onReceiveAd(Ad arg0) {
-        Clog.d(Clog.mediationLogTag, "AdMobBanner - onReceiveAd: " + arg0);
-        if (mMediatedBannerAdViewController != null) {
-            mMediatedBannerAdViewController.onAdLoaded();
-        }
     }
 
 }

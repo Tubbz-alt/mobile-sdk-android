@@ -16,17 +16,18 @@
 package com.appnexus.opensdk.mediatedviews;
 
 import android.app.Activity;
+import android.os.Bundle;
 import android.util.Pair;
 import com.appnexus.opensdk.MediatedAdViewController;
 import com.appnexus.opensdk.MediatedInterstitialAdView;
 import com.appnexus.opensdk.MediatedInterstitialAdViewController;
 import com.appnexus.opensdk.TargetingParameters;
 import com.appnexus.opensdk.utils.Clog;
-import com.google.ads.Ad;
-import com.google.ads.AdListener;
-import com.google.ads.AdRequest;
-import com.google.ads.InterstitialAd;
-import com.google.ads.doubleclick.DfpExtras;
+import com.google.android.gms.ads.AdListener;
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.InterstitialAd;
+import com.google.android.gms.ads.mediation.admob.AdMobExtras;
+import com.google.android.gms.plus.model.people.Person;
 
 /**
  * This class is the Google DFP interstitial adaptor it provides the functionality needed to allow
@@ -38,7 +39,66 @@ import com.google.ads.doubleclick.DfpExtras;
  * SDK.
  *
  */
-public class DFPInterstitial implements MediatedInterstitialAdView, AdListener {
+public class DFPInterstitial implements MediatedInterstitialAdView {
+
+    private final AdListener adListener = new AdListener(){
+        @Override
+        public void onAdClosed() {
+            super.onAdClosed();
+            Clog.d(Clog.mediationLogTag, "DFPInterstitial - onAdClosed");
+        }
+
+        @Override
+        public void onAdFailedToLoad(int errorCode) {
+            super.onAdFailedToLoad(errorCode);
+            Clog.d(Clog.mediationLogTag, String.format("DFPInterstitial - onAdFailedToLoad: with errorCode: %s", errorCode));
+
+            MediatedAdViewController.RESULT code = MediatedAdViewController.RESULT.INTERNAL_ERROR;
+
+            switch (errorCode) {
+                case AdRequest.ERROR_CODE_INTERNAL_ERROR:
+                    code = MediatedAdViewController.RESULT.INTERNAL_ERROR;
+                    break;
+                case AdRequest.ERROR_CODE_INVALID_REQUEST:
+                    code = MediatedAdViewController.RESULT.INVALID_REQUEST;
+                    break;
+                case AdRequest.ERROR_CODE_NETWORK_ERROR:
+                    code = MediatedAdViewController.RESULT.NETWORK_ERROR;
+                    break;
+                case AdRequest.ERROR_CODE_NO_FILL:
+                    code = MediatedAdViewController.RESULT.UNABLE_TO_FILL;
+                    break;
+                default:
+                    break;
+            }
+
+            if (mMediatedInterstitialAdViewController != null) {
+                mMediatedInterstitialAdViewController.onAdFailed(code);
+            }
+        }
+
+        @Override
+        public void onAdLeftApplication() {
+            super.onAdLeftApplication();
+            Clog.d(Clog.mediationLogTag, "DFPInterstitial - onAdLeftApplication");
+            if (mMediatedInterstitialAdViewController != null) {
+                mMediatedInterstitialAdViewController.onAdClicked();
+            }
+        }
+
+        @Override
+        public void onAdOpened() {
+            super.onAdOpened();
+            Clog.d(Clog.mediationLogTag, "DFPInterstitial - onAdOpened");
+        }
+
+        @Override
+        public void onAdLoaded() {
+            super.onAdLoaded();
+            mMediatedInterstitialAdViewController.onAdLoaded();
+        }
+    };
+
     private InterstitialAd iad;
     private MediatedInterstitialAdViewController mMediatedInterstitialAdViewController;
 
@@ -50,88 +110,40 @@ public class DFPInterstitial implements MediatedInterstitialAdView, AdListener {
     public void requestAd(MediatedInterstitialAdViewController mIC, Activity activity, String parameter, String uid, TargetingParameters targetingParameters) {
         Clog.d(Clog.mediationLogTag, String.format("DFPInterstitial - requesting an ad: [%s, %s]", parameter, uid));
 
-        iad = new InterstitialAd(activity, uid);
+        iad = new InterstitialAd(activity);
+        iad.setAdUnitId(uid);
 
-        AdRequest ar = new AdRequest();
+        AdRequest.Builder builder = new AdRequest.Builder();
 
         switch(targetingParameters.getGender()){
             case UNKNOWN:
                 break;
             case FEMALE:
-                ar.setGender(AdRequest.Gender.FEMALE);
+                builder.setGender(Person.Gender.FEMALE);
                 break;
             case MALE:
-                ar.setGender(AdRequest.Gender.MALE);
+                builder.setGender(Person.Gender.MALE);
                 break;
         }
-        DfpExtras extras = new DfpExtras();
+
+
+        final Bundle bundle = new Bundle();
         if(targetingParameters.getAge()!=null){
-            extras.addExtra("Age", targetingParameters.getAge());
+            bundle.putString("Age", targetingParameters.getAge());
         }
         if(targetingParameters.getLocation()!=null){
-            ar.setLocation(targetingParameters.getLocation());
+            builder.setLocation(targetingParameters.getLocation());
         }
         for(Pair<String, String> p : targetingParameters.getCustomKeywords()){
-            extras.addExtra(p.first, p.second);
+            bundle.putString(p.first, p.second);
         }
-        ar.setNetworkExtras(extras);
 
-        iad.setAdListener(this);
+        builder.addNetworkExtras(new AdMobExtras(bundle));
+
+        iad.setAdListener(adListener);
 
         mMediatedInterstitialAdViewController = mIC;
-        iad.loadAd(ar);
-    }
-
-    @Override
-    public void onReceiveAd(Ad ad) {
-        Clog.d(Clog.mediationLogTag, "DFPInterstitial - onReceiveAd: " + ad);
-        mMediatedInterstitialAdViewController.onAdLoaded();
-    }
-
-    @Override
-    public void onDismissScreen(Ad arg0) {
-        Clog.d(Clog.mediationLogTag, "DFPInterstitial - onDismissScreen: " + arg0);
-    }
-
-    @Override
-    public void onFailedToReceiveAd(Ad arg0, AdRequest.ErrorCode arg1) {
-        Clog.d(Clog.mediationLogTag, String.format("DFPInterstitial - onFailedToReceiveAd: %s with error: %s", arg0, arg1));
-
-        MediatedAdViewController.RESULT code = MediatedAdViewController.RESULT.INTERNAL_ERROR;
-
-        switch (arg1) {
-            case INTERNAL_ERROR:
-                code = MediatedAdViewController.RESULT.INTERNAL_ERROR;
-                break;
-            case INVALID_REQUEST:
-                code = MediatedAdViewController.RESULT.INVALID_REQUEST;
-                break;
-            case NETWORK_ERROR:
-                code = MediatedAdViewController.RESULT.NETWORK_ERROR;
-                break;
-            case NO_FILL:
-                code = MediatedAdViewController.RESULT.UNABLE_TO_FILL;
-                break;
-            default:
-                break;
-        }
-
-        if (mMediatedInterstitialAdViewController != null) {
-            mMediatedInterstitialAdViewController.onAdFailed(code);
-        }
-    }
-
-    @Override
-    public void onLeaveApplication(Ad arg0) {
-        Clog.d(Clog.mediationLogTag, "DFPInterstitial - onLeaveApplication: " + arg0);
-        if (mMediatedInterstitialAdViewController != null) {
-            mMediatedInterstitialAdViewController.onAdClicked();
-        }
-    }
-
-    @Override
-    public void onPresentScreen(Ad arg0) {
-        Clog.d(Clog.mediationLogTag, "DFPInterstitial - onPresentScreen: " + arg0);
+        iad.loadAd(builder.build());
     }
 
     @Override
@@ -141,7 +153,7 @@ public class DFPInterstitial implements MediatedInterstitialAdView, AdListener {
             Clog.e(Clog.mediationLogTag, "DFPInterstitial - show called while interstitial ad view was null");
             return;
         }
-        if (!iad.isReady()) {
+        if (!iad.isLoaded()) {
             Clog.e(Clog.mediationLogTag, "DFPInterstitial - show called while interstitial ad was not ready");
             return;
         }
@@ -152,7 +164,7 @@ public class DFPInterstitial implements MediatedInterstitialAdView, AdListener {
 
     @Override
     public boolean isReady() {
-        return (iad != null) && (iad.isReady());
+        return (iad != null) && (iad.isLoaded());
     }
 
 }

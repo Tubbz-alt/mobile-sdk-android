@@ -32,7 +32,7 @@ import java.util.concurrent.TimeUnit;
 
 class AdFetcher implements AdRequester {
     private ScheduledExecutorService tasker;
-    private final AdView owner;
+    private final AdView owner; // assume not null
     private int period = -1;
     private boolean autoRefresh;
     private final RequestHandler handler;
@@ -78,15 +78,11 @@ class AdFetcher implements AdRequester {
 
     }
 
-    private void requestFailed() {
-        owner.fail();
-    }
-
     void start() {
         Clog.d(Clog.baseLogTag, Clog.getString(R.string.start));
         if (tasker != null) {
+            // only print log, don't call onAdFailed callback
             Clog.d(Clog.baseLogTag, Clog.getString(R.string.moot_restart));
-            requestFailed();
             return;
         }
         makeTasker();
@@ -95,12 +91,12 @@ class AdFetcher implements AdRequester {
     private void makeTasker() {
         // Start a Scheduler to execute recurring tasks
         tasker = Executors
-                .newScheduledThreadPool(Settings.getSettings().FETCH_THREAD_COUNT);
+                .newScheduledThreadPool(Settings.FETCH_THREAD_COUNT);
 
         // Get the period from the settings
         final int msPeriod = period <= 0 ? 30 * 1000 : period;
 
-        if (!getAutoRefresh()) {
+        if (!autoRefresh) {
             Clog.v(Clog.baseLogTag,
                     Clog.getString(R.string.fetcher_start_single));
             // Request an ad once
@@ -172,7 +168,7 @@ class AdFetcher implements AdRequester {
             }
 
             // Update last fetch time once
-            if(fetcher.lastFetchTime!=-1){
+            if (fetcher.lastFetchTime != -1) {
                 Clog.d(Clog.baseLogTag,
                         Clog.getString(
                                 R.string.new_ad_since,
@@ -208,39 +204,38 @@ class AdFetcher implements AdRequester {
 
     @Override
     public void failed(AdRequest request) {
-        owner.fail();
+        // AdRequest failed
+        owner.fail(ResultCode.NETWORK_ERROR);
     }
 
     public void dispatchResponse(final AdResponse response) {
 
         if ((owner.getMediatedAds() != null) && !owner.getMediatedAds().isEmpty()) {
+            MediatedAd mediatedAd = owner.popMediatedAd();
+            if ((mediatedAd != null) && (response != null)) {
+                mediatedAd.setExtras(response.getExtras());
+            }
             // mediated
             if (owner.isBanner()) {
                 MediatedBannerAdViewController.create(
                         (Activity) owner.getContext(),
                         owner.mAdFetcher,
-                        owner.popMediatedAd(),
+                        mediatedAd,
                         owner.getAdDispatcher());
             } else if (owner.isInterstitial()) {
                 MediatedInterstitialAdViewController.create(
                         (Activity) owner.getContext(),
                         owner.mAdFetcher,
-                        owner.popMediatedAd(),
+                        mediatedAd,
                         owner.getAdDispatcher());
             }
-        } else if ((response != null)
-                && response.isMraid()) {
-            // mraid
-            MRAIDWebView output = new MRAIDWebView(owner);
-            output.loadAd(response);
-            owner.getAdDispatcher().onAdLoaded(output);
         } else {
             AdWebView output = new AdWebView(owner);
             output.loadAd(response);
             // standard
-            if(owner.isBanner()){
+            if (owner.isBanner()) {
                 BannerAdView bav = (BannerAdView) owner;
-                if(bav.getExpandsToFitScreenWidth() == true){
+                if (bav.getExpandsToFitScreenWidth() && (response != null)) {
                     bav.expandToFitScreenWidth(response.getWidth(), response.getHeight(), output);
                 }
             }
@@ -255,21 +250,14 @@ class AdFetcher implements AdRequester {
         // no ads in the response and no old ads means no fill
         if (!responseHasAds && !ownerHasAds) {
             Clog.w(Clog.httpRespLogTag, Clog.getString(R.string.response_no_ads));
-            requestFailed();
+            owner.fail(ResultCode.UNABLE_TO_FILL);
             return;
         }
 
         //If we're about to dispatch a creative to a banneradview that has been resized by ad stretching, reset it's size
-        if(owner.isBanner()){
-            BannerAdView bav = (BannerAdView)owner;
+        if (owner.isBanner()) {
+            BannerAdView bav = (BannerAdView) owner;
             bav.resetContainerIfNeeded();
-        }
-
-        // no ads in the response and no old ads means no fill
-        if (!responseHasAds && !ownerHasAds) {
-            Clog.w(Clog.httpRespLogTag, Clog.getString(R.string.response_no_ads));
-            requestFailed();
-            return;
         }
 
         if (responseHasAds) {

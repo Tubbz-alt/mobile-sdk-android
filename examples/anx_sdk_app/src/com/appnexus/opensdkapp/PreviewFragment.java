@@ -32,11 +32,9 @@ import android.widget.FrameLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
-import com.appnexus.opensdk.AdListener;
-import com.appnexus.opensdk.AdView;
-import com.appnexus.opensdk.BannerAdView;
-import com.appnexus.opensdk.InterstitialAdView;
+import com.appnexus.opensdk.*;
 import com.appnexus.opensdk.utils.Clog;
+import com.appnexus.opensdk.utils.StringUtil;
 import com.handmark.pulltorefresh.library.PullToRefreshBase;
 import com.handmark.pulltorefresh.library.PullToRefreshScrollView;
 
@@ -59,11 +57,13 @@ public class PreviewFragment extends Fragment {
 
         bav = (BannerAdView) out.findViewById(R.id.banner);
         bav.setAdListener(adListener);
+        bav.setAppEventListener(appEventListener);
 
         bannerText = (TextView) out.findViewById(R.id.bannertext);
 
         iav = new InterstitialAdView(getActivity());
         iav.setAdListener(adListener);
+        iav.setAppEventListener(appEventListener);
 
         pullToRefreshView = (PullToRefreshScrollView) out.findViewById(R.id.pull_to_refresh);
         pullToRefreshView.setOnRefreshListener(new PullToRefreshBase.OnRefreshListener<ScrollView>() {
@@ -103,12 +103,20 @@ public class PreviewFragment extends Fragment {
             bav.setAutoRefreshInterval(settingsWrapper.getRefreshPeriod());
             bav.setAdSize(settingsWrapper.getWidth(),settingsWrapper.getHeight());
 
-
             bav.setShouldServePSAs(settingsWrapper.isAllowPsas());
             bav.setOpensNativeBrowser(!settingsWrapper.isBrowserInApp());
             bav.setPlacementID(settingsWrapper.getPlacementId());
+            bav.setGender(settingsWrapper.getGender());
+            bav.setAge(settingsWrapper.getAge());
+            bav.clearCustomKeywords();
+            if(!StringUtil.isEmpty(settingsWrapper.getZip()))
+                bav.addCustomKeywords("pcode", settingsWrapper.getZip());
+            for(String key : settingsWrapper.getCustomKeywords().keySet()){
+                bav.addCustomKeywords(key, settingsWrapper.getCustomKeywords().get(key));
+            }
+
             if (!bav.loadAd()) {
-                adListener.onAdRequestFailed(null);
+                adListener.onAdRequestFailed(null, null);
             }
         } else {
             bav.setAutoRefreshInterval(0);
@@ -118,6 +126,14 @@ public class PreviewFragment extends Fragment {
             iav.setShouldServePSAs(settingsWrapper.isAllowPsas());
             iav.setOpensNativeBrowser(!settingsWrapper.isBrowserInApp());
             iav.setPlacementID(settingsWrapper.getPlacementId());
+            iav.setGender(settingsWrapper.getGender());
+            iav.setAge(settingsWrapper.getAge());
+            iav.clearCustomKeywords();
+            if(!StringUtil.isEmpty(settingsWrapper.getZip()))
+                iav.addCustomKeywords("pcode", settingsWrapper.getZip());
+            for(String key : settingsWrapper.getCustomKeywords().keySet()){
+                iav.addCustomKeywords(key, settingsWrapper.getCustomKeywords().get(key));
+            }
 
             int color = DEF_COLOR;
 
@@ -132,34 +148,33 @@ public class PreviewFragment extends Fragment {
             }
             iav.setBackgroundColor(color);
             if (!iav.loadAd()) {
-                adListener.onAdRequestFailed(null);
+                adListener.onAdRequestFailed(null, null);
             }
         }
     }
 
-    private void resetBanner() {
-        if (bav != null) {
-            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) bav.getLayoutParams();
-            adFrame.removeView(bav);
-            if(!bav.getExpandsToFitScreenWidth()){
-                bav = new BannerAdView(getActivity());
-                bav.setAdListener(adListener);
-                bav.setLayoutParams(lp);
-            }else{
-                bav = new BannerAdView(getActivity());
-                bav.setExpandsToFitScreenWidth(true);
-                bav.setAdListener(adListener);
-                bav.setLayoutParams(lp);
-            }
-            adFrame.addView(bav, 0);
+    final private AppEventListener appEventListener = new AppEventListener() {
+        @Override
+        public void onAppEvent(AdView adView, String name, String data) {
+            toast("AppEvent received: " + name + ", " + data);
         }
-    }
+
+        private void toast(String message) {
+            if (getActivity() != null)
+                Toast.makeText(getActivity(), message, Toast.LENGTH_SHORT).show();
+            Clog.d(Constants.BASE_LOG_TAG, message);
+        }
+    };
 
     final private AdListener adListener = new AdListener() {
         @Override
-        public void onAdRequestFailed(AdView adView) {
+        public void onAdRequestFailed(AdView adView, ResultCode errorCode) {
             pullToRefreshView.onRefreshComplete();
-            toast("Ad request failed");
+            if (errorCode == null) {
+                toast("Call to loadAd failed");
+            } else {
+                toast("Ad request failed: " + errorCode);
+            }
         }
 
         @Override

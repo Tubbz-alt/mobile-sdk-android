@@ -20,12 +20,12 @@ import android.annotation.SuppressLint;
 import com.appnexus.opensdk.utils.Clog;
 import com.appnexus.opensdk.utils.HTTPResponse;
 import com.appnexus.opensdk.utils.StringUtil;
-
 import org.apache.http.Header;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Locale;
 
@@ -35,9 +35,10 @@ class AdResponse {
     private int height;
     private int width;
     private String type;
-    private boolean isMraid = false;
 
     private LinkedList<MediatedAd> mediatedAds;
+
+    private HashMap<String, Object> extras = new HashMap<String, Object>();
 
     private boolean containsAds = false;
 
@@ -61,6 +62,9 @@ class AdResponse {
     private static final String RESPONSE_VALUE_ERROR = "error";
     private static final String RESPONSE_VALUE_ANDROID = "android";
 
+    static final String EXTRAS_KEY_MRAID = "MRAID";
+    static final String EXTRAS_KEY_ORIENTATION = "ORIENTATION";
+
     public AdResponse(String body, Header[] headers) {
         if (StringUtil.isEmpty(body)) {
             Clog.clearLastResponse();
@@ -83,6 +87,13 @@ class AdResponse {
 
     public AdResponse(boolean isHttpError) {
         this.isHttpError = isHttpError;
+    }
+
+    // minimal constructor for protected loadAdFromHtml function
+    protected AdResponse(String content, int width, int height) {
+        this.content = content;
+        this.width = width;
+        this.height = height;
     }
 
     private void printHeaders(Header[] headers) {
@@ -143,12 +154,14 @@ class AdResponse {
             height = getJSONInt(firstAd, RESPONSE_KEY_HEIGHT);
             width = getJSONInt(firstAd, RESPONSE_KEY_WIDTH);
             content = getJSONString(firstAd, RESPONSE_KEY_CONTENT);
-            if (content == null || content.equals("")) {
+            if (StringUtil.isEmpty(content)) {
                 Clog.e(Clog.httpRespLogTag,
                         Clog.getString(R.string.blank_ad));
             }
             else {
-                isMraid = content.contains(MRAID_JS_FILENAME);
+                if (content.contains(MRAID_JS_FILENAME)) {
+                    addToExtras(EXTRAS_KEY_MRAID, true);
+                }
                 containsAds = true;
                 return true;
             }
@@ -174,7 +187,7 @@ class AdResponse {
                                 // we only care about handlers for android
                                 String type = getJSONString(handlerElement, RESPONSE_KEY_TYPE);
                                 if (type != null) {
-                                    type.toLowerCase(Locale.US);
+                                    type = type.toLowerCase(Locale.US);
                                 }
                                 if ((type != null) && type.equals(RESPONSE_VALUE_ANDROID)) {
                                     String className = getJSONString(handlerElement, RESPONSE_KEY_CLASS);
@@ -229,12 +242,16 @@ class AdResponse {
         return containsAds;
     }
 
-    public boolean isMraid() {
-        return isMraid;
-    }
-
     public boolean isHttpError() {
         return isHttpError;
+    }
+
+    public HashMap<String, Object> getExtras() {
+        return extras;
+    }
+
+    public void addToExtras(String key, Object value) {
+        extras.put(key, value);
     }
 
     // also returns null if array is empty

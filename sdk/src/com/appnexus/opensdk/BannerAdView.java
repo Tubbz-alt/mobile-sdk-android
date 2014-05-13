@@ -26,9 +26,7 @@ import android.content.res.TypedArray;
 import android.graphics.Point;
 import android.os.Build;
 import android.util.AttributeSet;
-import android.view.Display;
-import android.view.ViewGroup;
-import android.view.WindowManager;
+import android.view.*;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
 import com.appnexus.opensdk.utils.Clog;
@@ -87,21 +85,19 @@ import com.appnexus.opensdk.utils.WebviewUtil;
 public class BannerAdView extends AdView {
 
     private int period;
-    private boolean auto_refresh;
-    private boolean running;
+    private boolean auto_refresh = true;
+    private boolean loadAdHasBeenCalled;
     private boolean shouldReloadOnResume;
     private BroadcastReceiver receiver;
-    private boolean receiversRegistered;
     protected boolean shouldResetContainer = false;
     private boolean expandsToFitScreenWidth = false;
     private int width = -1;
     private int height = -1;
 
     private void setDefaultsBeforeXML() {
-        running = false;
-        auto_refresh = false;
+        loadAdHasBeenCalled = false;
+        auto_refresh = true;
         shouldReloadOnResume = false;
-        receiversRegistered = false;
     }
 
     /**
@@ -112,7 +108,6 @@ public class BannerAdView extends AdView {
      */
     public BannerAdView(Context context) {
         super(context);
-        setup(context, null);
     }
 
     /**
@@ -126,7 +121,6 @@ public class BannerAdView extends AdView {
      */
     public BannerAdView(Context context, AttributeSet attrs) {
         super(context, attrs);
-        setup(context, attrs);
     }
 
     /**
@@ -147,7 +141,6 @@ public class BannerAdView extends AdView {
      */
     public BannerAdView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
-        setup(context, attrs);
     }
 
     /**
@@ -176,14 +169,15 @@ public class BannerAdView extends AdView {
         super.setup(context, attrs);
         onFirstLayout();
         mAdFetcher.setPeriod(period);
-        mAdFetcher.setAutoRefresh(getAutoRefresh());
+        mAdFetcher.setAutoRefresh(auto_refresh);
     }
 
-    void setupBroadcast(Context context) {
+    private void setupBroadcast() {
+        if (receiver != null) return;
+
         IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
         filter.addAction(Intent.ACTION_SCREEN_ON);
         receiver = new BroadcastReceiver() {
-
             @Override
             public void onReceive(Context context, Intent intent) {
                 if (intent.getAction().equals(Intent.ACTION_SCREEN_OFF)) {
@@ -199,11 +193,9 @@ public class BannerAdView extends AdView {
                     Clog.d(Clog.baseLogTag,
                             Clog.getString(R.string.screen_on_start));
                 }
-
             }
-
         };
-        context.registerReceiver(receiver, filter);
+        getContext().registerReceiver(receiver, filter);
     }
 
     @Override
@@ -212,11 +204,8 @@ public class BannerAdView extends AdView {
         super.onLayout(changed, left, top, right, bottom);
 
         // Are we coming back from a screen/user presence change?
-        if (running) {
-            if (!receiversRegistered) {
-                setupBroadcast(getContext());
-                receiversRegistered = true;
-            }
+        if (loadAdHasBeenCalled) {
+            setupBroadcast();
             if (shouldReloadOnResume) {
                 start();
             }
@@ -227,10 +216,7 @@ public class BannerAdView extends AdView {
     // Make sure receiver is registered.
     private void onFirstLayout() {
         if (this.auto_refresh) {
-            if (!receiversRegistered) {
-                setupBroadcast(getContext());
-                receiversRegistered = true;
-            }
+            setupBroadcast();
         }
     }
 
@@ -246,8 +232,13 @@ public class BannerAdView extends AdView {
      */
     @Override
     public boolean loadAd() {
-        running = true;
-        return super.loadAd();
+        loadAdHasBeenCalled = true;
+        if(super.loadAd())
+            return true;
+        else{
+            loadAdHasBeenCalled = false;
+            return false;
+        }
     }
 
     /**
@@ -270,16 +261,40 @@ public class BannerAdView extends AdView {
         return loadAd();
     }
 
+    @Override
+    void display(Displayable d) {
+        super.display(d);
+
+        WebView webView = null;
+        if (getChildAt(0) instanceof WebView) {
+            webView = (WebView) getChildAt(0);
+        }
+
+        this.removeAllViews();
+        if (webView != null)
+            webView.destroy();
+
+        if ((d != null) && (d.getView() != null)) {
+            View displayableView = d.getView();
+            this.addView(displayableView);
+
+            // center the displayable view in AdView
+            ((LayoutParams) displayableView.getLayoutParams()).gravity = Gravity.CENTER;
+
+            unhide();
+        }
+    }
+
     void start() {
         Clog.d(Clog.publicFunctionsLogTag, Clog.getString(R.string.start));
         mAdFetcher.start();
-        running = true;
+        loadAdHasBeenCalled = true;
     }
 
     void stop() {
         Clog.d(Clog.publicFunctionsLogTag, Clog.getString(R.string.stop));
         mAdFetcher.stop();
-        running = false;
+        loadAdHasBeenCalled = false;
     }
 
     @Override
@@ -420,7 +435,7 @@ public class BannerAdView extends AdView {
      * @param period The auto-refresh interval, in milliseconds.
      */
     public void setAutoRefreshInterval(int period) {
-        this.period = Math.max(Settings.getSettings().MIN_REFRESH_MILLISECONDS,
+        this.period = Math.max(Settings.MIN_REFRESH_MILLISECONDS,
                 period);
         if (period > 0) {
             Clog.d(Clog.publicFunctionsLogTag,
@@ -459,7 +474,7 @@ public class BannerAdView extends AdView {
             mAdFetcher.setAutoRefresh(auto_refresh);
             mAdFetcher.clearDurations();
         }
-        if (this.auto_refresh && !running && mAdFetcher != null) {
+        if (this.auto_refresh && !loadAdHasBeenCalled && mAdFetcher != null) {
             start();
         }
     }
@@ -497,16 +512,21 @@ public class BannerAdView extends AdView {
             // Register a broadcast receiver to pause and refresh when the phone
             // is
             // locked
-            if (!receiversRegistered) {
-                setupBroadcast(getContext());
-                receiversRegistered = true;
-            }
+            setupBroadcast();
             Clog.d(Clog.baseLogTag, Clog.getString(R.string.unhidden));
-            if (!closing && !mraid_changing_size_or_visibility && !isMRAIDExpanded() && mAdFetcher != null
-                    && (running || shouldReloadOnResume || auto_refresh)){
-                start();
+            //The only time we want to request on visibility changes is if an ad hasn't been loaded yet (loadAdHasBeenCalled)
+            // shouldReloadOnResume is true
+            // OR auto_refresh is enabled
+            if(loadAdHasBeenCalled || shouldReloadOnResume || auto_refresh){
+
+                //If we're MRAID mraid_is_closing or expanding, don't load.
+                if (!mraid_is_closing && !mraid_changing_size_or_visibility
+                        && !isMRAIDExpanded() && (mAdFetcher != null)
+                        && !loadedOffscreen) {
+                    start();
+                }
             }
-            closing = false;
+            mraid_is_closing = false;
 
             if (getChildAt(0) instanceof WebView) {
                 WebView webView = (WebView) getChildAt(0);
@@ -514,12 +534,9 @@ public class BannerAdView extends AdView {
             }
         } else {
             // Unregister the receiver to prevent a leak.
-            if (receiversRegistered) {
-                dismantleBroadcast();
-                receiversRegistered = false;
-            }
+            dismantleBroadcast();
             Clog.d(Clog.baseLogTag, Clog.getString(R.string.hidden));
-            if (mAdFetcher != null && running) {
+            if (mAdFetcher != null && loadAdHasBeenCalled) {
                 stop();
             }
 
@@ -531,7 +548,9 @@ public class BannerAdView extends AdView {
     }
 
     private void dismantleBroadcast() {
+        if (receiver == null) return;
         getContext().unregisterReceiver(receiver);
+        receiver = null;
     }
 
     @Override
@@ -592,16 +611,15 @@ public class BannerAdView extends AdView {
             width=display.getWidth();
         }
         float ratio_delta = ((float) width)/((float) adWidth);
-        int new_height = (int)(adHeight*ratio_delta);
+        int new_height = (int)Math.floor(adHeight*ratio_delta);
         oldH = getLayoutParams().height;
         oldW = getLayoutParams().width;
 
         //Adjust width of container
-        if(getLayoutParams().width>0){
-            getLayoutParams().width=(int)(adWidth*ratio_delta);
-        }else if(getLayoutParams().width==ViewGroup.LayoutParams.WRAP_CONTENT){
-            getLayoutParams().width=(int)(adWidth*ratio_delta);
+        if(getLayoutParams().width>0 || getLayoutParams().width==ViewGroup.LayoutParams.WRAP_CONTENT){
+            getLayoutParams().width=width;
         }
+
         //Adjust height of container
         getLayoutParams().height=new_height;
 
@@ -613,7 +631,7 @@ public class BannerAdView extends AdView {
             webview.getLayoutParams().height = FrameLayout.LayoutParams.MATCH_PARENT;
         }
 
-        webview.setInitialScale((int)(ratio_delta*100));
+        webview.setInitialScale((int)Math.ceil(ratio_delta*100));
 
         webview.invalidate();
 

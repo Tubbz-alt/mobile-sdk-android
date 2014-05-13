@@ -1,11 +1,11 @@
 apply plugin: 'android-library'
 
 android {
-    compileSdkVersion 17
-    buildToolsVersion "18.1.1"
+    compileSdkVersion 19
+    buildToolsVersion "19.0.3"
 
-  defaultConfig {
-        minSdkVersion 9
+    defaultConfig {
+        minSdkVersion 8
     }
 
     sourceSets {
@@ -14,12 +14,11 @@ android {
         main.res.srcDir 'res'
         main.assets.srcDir 'assets'
         main.resources.srcDir 'src'
-        instrumentTest.java.srcDir 'tests/src'
     }
-    
-   	lintOptions {
-    	abortOnError false
-   	}
+
+    lintOptions {
+        abortOnError false
+    }
 }
 
 apply from: '../gradle-mvn-push.gradle'

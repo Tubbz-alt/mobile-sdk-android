@@ -1,21 +1,14 @@
-apply plugin: 'maven'
+/**
+AppNexus Android SDK Build
+**/
 
 buildscript {
     repositories {
-
-        maven {
-           	url nexusRepositoryUrl
-            
-            credentials {
-                username nexusUsername
-                password nexusPassword
-            }
-        }
-        mavenCentral()
+       mavenCentral()
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:0.7.+'
+        classpath 'com.android.tools.build:gradle:0.9.+'
     }
 }
 

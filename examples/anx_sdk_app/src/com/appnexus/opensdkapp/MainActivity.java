@@ -16,7 +16,6 @@
 
 package com.appnexus.opensdkapp;
 
-import android.R.color;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
@@ -24,6 +23,7 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Color;
 import android.net.wifi.WifiManager;
 import android.os.*;
 import android.support.v4.app.Fragment;
@@ -34,6 +34,9 @@ import android.view.*;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.*;
 import android.widget.TabHost.TabContentFactory;
+import com.amazon.device.ads.AdRegistration;
+import com.appnexus.opensdk.AndroidAdvertisingIDUtil;
+import com.appnexus.opensdk.SDKSettings;
 import com.appnexus.opensdk.utils.Clog;
 import com.appnexus.opensdk.utils.ClogListener;
 
@@ -118,6 +121,11 @@ public class MainActivity extends FragmentActivity implements
         contentView = getWindow().findViewById(Window.ID_ANDROID_CONTENT);
 
         Clog.registerListener(logTabClogListener);
+
+        getAAID();
+
+        // for testing Amazon
+        AdRegistration.setAppKey("56474f45464d345646505037394f474b");
     }
 
     @Override
@@ -324,6 +332,26 @@ public class MainActivity extends FragmentActivity implements
     };
 
     /**
+     * Android Advertising ID
+     */
+
+    private void getAAID() {
+        AndroidAdvertisingIDUtil util = new AndroidAdvertisingIDUtil() {
+            @Override
+            public void onRetrievedID(String androidAdvertisingID, boolean isLimitAdTrackingEnabled) {
+                Clog.d(Constants.BASE_LOG_TAG, "Setting aaid: " + androidAdvertisingID + " " + isLimitAdTrackingEnabled);
+                SDKSettings.setAAID(androidAdvertisingID, isLimitAdTrackingEnabled);
+            }
+
+            @Override
+            public void onFailedToRetrieveID() {
+                Clog.d(Constants.BASE_LOG_TAG, "Failed to retrieve aaid");
+                SDKSettings.setAAID(null, false);
+            }
+        };
+        util.getID(this);
+    }
+    /**
      * Log file management code
      */
 
@@ -449,15 +477,30 @@ public class MainActivity extends FragmentActivity implements
             super.onPostExecute(logs);
             final StringBuilder sb = new StringBuilder();
 
+            RelativeLayout dialogLayout = (RelativeLayout) getLayoutInflater().inflate(R.layout.dialog_log, null);
+            LinearLayout frame = (LinearLayout) dialogLayout.findViewById(R.id.frame);
             for (int i = logs.size() - 1;
                  (sb.length() < Constants.LOG_MAX_CHAR) && (i > -1); i--) {
-                sb.append(logs.get(i));
-            }
+                String s = logs.get(i);
+                sb.append(s);
 
-            RelativeLayout dialogLayout = (RelativeLayout) getLayoutInflater().inflate(R.layout.dialog_log, null);
-            View frame = dialogLayout.findViewById(R.id.frame);
-            TextView txtAppLogs = (TextView) frame.findViewById(R.id.log_txt_applogs);
-            txtAppLogs.setText(sb.toString());
+                TextView tv = new TextView(dialogLayout.getContext());
+                tv.setText(s);
+                tv.setTextSize(11);
+
+                if(s.contains(") D/")){
+                    tv.setTextColor(Color.BLUE);
+                }else if(s.contains(") E/")){
+                    tv.setTextColor(Color.RED);
+                }else if(s.contains(") W/")){
+                    tv.setTextColor(Color.parseColor("#FFA824")); //Dark yellow so your eyes don't fall out
+                }else if(s.contains(") I/")){
+                    tv.setTextColor(Color.GREEN);
+                }
+
+                frame.addView(tv);
+
+            }
             Button btnEmailLogs = (Button) dialogLayout.findViewById(R.id.log_btn_email);
             btnEmailLogs.setOnClickListener(new View.OnClickListener() {
                 @Override

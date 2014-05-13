@@ -15,19 +15,16 @@
  */
 package com.appnexus.opensdk;
 
-import java.lang.ref.WeakReference;
-
 import android.annotation.SuppressLint;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Message;
-import com.appnexus.opensdk.utils.Clog;
-import com.appnexus.opensdk.utils.HTTPGet;
-import com.appnexus.opensdk.utils.HTTPResponse;
-import com.appnexus.opensdk.utils.Settings;
-import com.appnexus.opensdk.utils.StringUtil;
+import com.appnexus.opensdk.utils.*;
+
+import java.lang.ref.WeakReference;
+import java.util.HashMap;
 
 /**
  * <p>
@@ -44,42 +41,6 @@ import com.appnexus.opensdk.utils.StringUtil;
 
 public abstract class MediatedAdViewController {
 
-	/**
-	 * This enum contains the results from mediation calls sent
-	 * back to the AppNexus SDK in the <code>onAdFailed</code>
-	 * method.
-	 */
-    public static enum RESULT {
-    	/**
-    	 * Return this if the ad loaded successfully.
-    	 */
-        SUCCESS,
-        /**
-         * Return this if the ad request parameters or placement ID
-         * were invalid.
-         */
-        INVALID_REQUEST,
-        /**
-         * Return this if the mediated network did not return an ad in
-         * this call.
-         */
-        UNABLE_TO_FILL,
-        /**
-         * Return this if the third-party SDK is not available.
-         */
-        MEDIATED_SDK_UNAVAILABLE,
-        /**
-         * Return this if a network error caused no ad to be returned.
-         */
-        NETWORK_ERROR,
-        /**
-         * Return this if an Internal error is detected in the
-         * third-party SDK.
-         */
-        INTERNAL_ERROR
-    }
-
-
     protected MediatedAdView mAV;
     private AdRequester requester;
     protected MediatedAd currentAd;
@@ -94,15 +55,15 @@ public abstract class MediatedAdViewController {
         this.listener = listener;
         this.currentAd = currentAd;
 
-        RESULT errorCode = null;
+        ResultCode errorCode = null;
 
         if (currentAd == null) {
             Clog.e(Clog.mediationLogTag, Clog.getString(R.string.mediated_no_ads));
-            errorCode = RESULT.UNABLE_TO_FILL;
+            errorCode = ResultCode.UNABLE_TO_FILL;
         } else {
             boolean instantiateSuccessful = instantiateNewMediatedAd();
             if (!instantiateSuccessful)
-                errorCode = RESULT.MEDIATED_SDK_UNAVAILABLE;
+                errorCode = ResultCode.MEDIATED_SDK_UNAVAILABLE;
         }
 
         if (errorCode != null)
@@ -129,13 +90,13 @@ public abstract class MediatedAdViewController {
             return false;
         }
         if (currentAd == null) {
-            onAdFailed(RESULT.UNABLE_TO_FILL);
+            onAdFailed(ResultCode.UNABLE_TO_FILL);
             return false;
         }
         if ((mAV == null) || (callerClass == null) || !callerClass.isInstance(mAV)) {
             Clog.e(Clog.mediationLogTag, Clog.getString(R.string.instance_exception,
                     callerClass != null ? callerClass.getCanonicalName() : "null"));
-            onAdFailed(RESULT.MEDIATED_SDK_UNAVAILABLE);
+            onAdFailed(ResultCode.MEDIATED_SDK_UNAVAILABLE);
             return false;
         }
 
@@ -169,7 +130,7 @@ public abstract class MediatedAdViewController {
         return false;
     }
 
-    void finishController() {
+    protected void finishController() {
         mAV = null;
         requester = null;
         currentAd = null;
@@ -193,7 +154,7 @@ public abstract class MediatedAdViewController {
 
         if (listener != null)
             listener.onAdLoaded(mediatedDisplayable);
-        fireResultCB(RESULT.SUCCESS);
+        fireResultCB(ResultCode.SUCCESS);
     }
 
     /**
@@ -207,12 +168,12 @@ public abstract class MediatedAdViewController {
      * @param reason The reason why the ad call from the third-party
      * SDK failed.
      */
-    public void onAdFailed(MediatedAdViewController.RESULT reason) {
+    public void onAdFailed(ResultCode reason) {
         if (hasSucceeded || hasFailed) return;
         cancelTimeout();
 
-        if (listener != null)
-            listener.onAdFailed(false);
+        // don't call the listener here. the requester will call the listener
+        // at the end of the waterfall
         fireResultCB(reason);
         finishController();
         hasFailed = true;
@@ -254,13 +215,13 @@ public abstract class MediatedAdViewController {
      Result CB Code
      */
     @SuppressLint({ "InlinedApi", "NewApi" }) /* suppress AsyncTask.THREAD_POOL_EXECUTOR warning for < HONEYCOMB */
-	private void fireResultCB(final RESULT result) {
+	private void fireResultCB(final ResultCode result) {
         if (hasFailed) return;
 
 
         // if resultCB is empty don't fire resultCB, and just continue to next ad
         if ((currentAd == null) || StringUtil.isEmpty(currentAd.getResultCB())) {
-            if(result == RESULT.SUCCESS) return;
+            if(result == ResultCode.SUCCESS) return;
             Clog.w(Clog.mediationLogTag, Clog.getString(R.string.fire_cb_result_null));
             // just making sure
             if (requester == null) {
@@ -272,7 +233,7 @@ public abstract class MediatedAdViewController {
         }
 
         //fire call to result cb url
-        ResultCBRequest cb = new ResultCBRequest(requester, currentAd.getResultCB(), result);
+        ResultCBRequest cb = new ResultCBRequest(requester, currentAd.getResultCB(), result, currentAd.getExtras());
 
         // Spawn GET call
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
@@ -285,18 +246,20 @@ public abstract class MediatedAdViewController {
     private class ResultCBRequest extends HTTPGet<Void, Void, HTTPResponse> {
         final AdRequester requester;
         private final String resultCB;
-        final RESULT result;
+        final ResultCode result;
+        private final HashMap<String, Object> extras;
 
-        private ResultCBRequest(AdRequester requester, String resultCB, RESULT result) {
+        private ResultCBRequest(AdRequester requester, String resultCB, ResultCode result, HashMap<String, Object> extras) {
             this.requester = requester;
             this.resultCB = resultCB;
             this.result = result;
+            this.extras = extras;
         }
 
         @Override
         protected void onPostExecute(HTTPResponse httpResponse) {
             // if this was the result of a successful ad, ignore the response and stop looking for more ads
-            if (this.result == RESULT.SUCCESS)
+            if (this.result == ResultCode.SUCCESS)
                 return;
 
             if (this.requester == null) {
@@ -306,6 +269,10 @@ public abstract class MediatedAdViewController {
             AdResponse response = null;
             if ((httpResponse != null) && httpResponse.getSucceeded()) {
                 response = new AdResponse(httpResponse);
+                if (extras.containsKey(AdResponse.EXTRAS_KEY_ORIENTATION)) {
+                    response.addToExtras(AdResponse.EXTRAS_KEY_ORIENTATION,
+                            extras.get(AdResponse.EXTRAS_KEY_ORIENTATION));
+                }
             } else {
                 Clog.w(Clog.httpRespLogTag, Clog.getString(R.string.result_cb_bad_response));
             }
@@ -331,7 +298,7 @@ public abstract class MediatedAdViewController {
 
     void startTimeout() {
         if (hasSucceeded || hasFailed) return;
-        timeoutHandler.sendEmptyMessageDelayed(0, Settings.getSettings().MEDIATED_NETWORK_TIMEOUT);
+        timeoutHandler.sendEmptyMessageDelayed(0, Settings.MEDIATED_NETWORK_TIMEOUT);
     }
 
     void cancelTimeout() {
@@ -351,9 +318,9 @@ public abstract class MediatedAdViewController {
             
             if (avc == null || avc.hasFailed) return;
             Clog.w(Clog.mediationLogTag, Clog.getString(R.string.mediation_timeout));
-            avc.onAdFailed(RESULT.INTERNAL_ERROR);
+            avc.onAdFailed(ResultCode.INTERNAL_ERROR);
         }
-    };
+    }
     // if the mediated network fails to call us within the timeout period, fail
     private final Handler timeoutHandler = new TimeoutHandler(this);
 

@@ -5,7 +5,7 @@ android {
     buildToolsVersion "19.0.3"
 
     defaultConfig {
-        minSdkVersion 8
+        minSdkVersion 9
         targetSdkVersion 19
     }
 
@@ -24,13 +24,11 @@ android {
 }
 
 dependencies {
-    compile fileTree(dir: 'libs', include: '*.jar')
-    compile project(':sdk')
+    compile 'com.android.support:support-v4:19.0.1'
     compile project(':mediation:mediatedviews:Amazon')
     compile project(':mediation:mediatedviews:GooglePlay')
     compile project(':mediation:mediatedviews:MillennialMedia')
     compile project(':examples:libs:pulltorefresh')
-    compile project(':examples:libs:google-play-services_lib')
     compile project(':extras:AndroidAdvertisingID')
 }
 

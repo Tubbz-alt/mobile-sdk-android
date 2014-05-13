@@ -21,4 +21,4 @@ android {
     }
 }
 
-apply from: '../gradle-mvn-push.gradle'
+apply from: '../build-scripts/gradle-mvn-push.gradle'

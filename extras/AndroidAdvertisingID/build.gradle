@@ -23,6 +23,6 @@ android {
 }
 
 dependencies {
-	compile 'com.google.android.gms:play-services:4.3.+'
+	compile 'com.google.android.gms:play-services:4.3.23'
 }
 

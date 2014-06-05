@@ -23,7 +23,7 @@ android {
 }
 
 dependencies {
-	compile 'com.shazam.appnexus:sdk:1.15.1-SNAPSHOT:@aar'
+    compile project(':sdk')
 	compile 'com.google.android.gms:play-services:4.3.23@aar'
 }
 

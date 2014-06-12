@@ -17,16 +17,15 @@
 package com.appnexus.opensdk;
 
 
-import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.TypedArray;
-import android.graphics.Point;
-import android.os.Build;
 import android.util.AttributeSet;
-import android.view.*;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
 import com.appnexus.opensdk.utils.Clog;
@@ -90,7 +89,7 @@ public class BannerAdView extends AdView {
     private boolean shouldReloadOnResume;
     private BroadcastReceiver receiver;
     protected boolean shouldResetContainer = false;
-    private boolean expandsToFitScreenWidth = false;
+    private boolean expandsToFitParentWidth = false;
     private int width = -1;
     private int height = -1;
 
@@ -353,10 +352,9 @@ public class BannerAdView extends AdView {
                         R.string.xml_set_opens_native_browser,
                         opensNativeBrowser));
             }else if (attr == R.styleable.BannerAdView_expands_to_fit_screen_width){
-                setExpandsToFitScreenWidth(a.getBoolean(attr, false));
+                setExpandsToFitParentWidth(a.getBoolean(attr, false));
                 Clog.d(Clog.xmlLogTag, Clog.getString(
-                        R.string.xml_set_expands_to_full_screen_width,
-                        expandsToFitScreenWidth
+                        R.string.xml_set_expands_to_full_screen_width, expandsToFitParentWidth
                 ));
             }
         }
@@ -586,8 +584,8 @@ public class BannerAdView extends AdView {
      *
      * @return If true, the ad will expand to fit screen width.
      */
-    public boolean getExpandsToFitScreenWidth() {
-        return expandsToFitScreenWidth;
+    public boolean getExpandsToFitParentWidth() {
+        return expandsToFitParentWidth;
     }
 
     /**
@@ -597,31 +595,19 @@ public class BannerAdView extends AdView {
      * quality degradation for the benefit of having an ad occupy the
      * entire ad view.  This feature is disabled by default.
      *
-     * @param expandsToFitScreenWidth If true, automatic expansion is
+     * @param expandsToFitParentWidth If true, automatic expansion is
      * enabled.
      */
-    public void setExpandsToFitScreenWidth(boolean expandsToFitScreenWidth) {
-        this.expandsToFitScreenWidth = expandsToFitScreenWidth;
+    public void setExpandsToFitParentWidth(boolean expandsToFitParentWidth) {
+        this.expandsToFitParentWidth = expandsToFitParentWidth;
     }
 
     protected int oldH;
     protected int oldW;
 
-    @SuppressLint("NewApi")
-	@SuppressWarnings("deprecation")
-	protected void expandToFitScreenWidth(int adWidth, int adHeight, AdWebView webview) {
-        //Determine the width of the screen
-        WindowManager wm = (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
-        Display display = wm.getDefaultDisplay();
+	protected void expandToFitParentWidth(int adWidth, int adHeight, AdWebView webview) {
 
-        int width=-1;
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2){
-            Point p = new Point();
-            display.getSize(p);
-            width=p.x;
-        }else{
-            width=display.getWidth();
-        }
+        final int width = ((View)getParent()).getWidth();
         float ratio_delta = ((float) width)/((float) adWidth);
         int new_height = (int)Math.floor(adHeight*ratio_delta);
         oldH = getLayoutParams().height;
@@ -648,8 +634,8 @@ public class BannerAdView extends AdView {
         webview.invalidate();
 
         shouldResetContainer =true;
-
     }
+
 
     protected void resetContainer() {
         shouldResetContainer =false;

@@ -187,7 +187,7 @@ public class PreviewFragment extends Fragment {
                 ScrollView.LayoutParams lp = new ScrollView.LayoutParams(
                         adframe.getLayoutParams());
                 lp.height = ScrollView.LayoutParams.WRAP_CONTENT;
-                if(!bav.getExpandsToFitScreenWidth()){
+                if(!bav.getExpandsToFitParentWidth()){
                     adframe.setLayoutParams(lp);
                 }
 
@@ -195,7 +195,7 @@ public class PreviewFragment extends Fragment {
                 getActivity().getWindowManager().getDefaultDisplay().getMetrics(m);
                 float d = m.density;
 
-                if(!bav.getExpandsToFitScreenWidth()){
+                if(!bav.getExpandsToFitParentWidth()){
                     FrameLayout.LayoutParams bannerlp = new FrameLayout.LayoutParams(bav.getLayoutParams());
                     bannerlp.gravity = Gravity.CENTER_HORIZONTAL;
                     if (bannerlp.width != -1) bannerlp.width = (int) (bav.getAdWidth() * d + 0.5f);

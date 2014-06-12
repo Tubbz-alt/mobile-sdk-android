@@ -1,14 +1,20 @@
 /**
-AppNexus Android SDK Build
-**/
+ AppNexus Android SDK Build
+ **/
+
+ext {
+    compileSdkVersion = 19
+    buildToolsVersion = "19.1.0"
+    androidBuildTools = 'com.android.tools.build:gradle:0.11.1'
+}
 
 buildscript {
     repositories {
-       mavenCentral()
+        mavenCentral()
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:0.10.+'
+        classpath 'com.android.tools.build:gradle:0.11.1'
     }
 }
 
@@ -16,7 +22,7 @@ allprojects {
     group = GROUP
     version = VERSION_NAME
 
- repositories {
+    repositories {
         maven {
             url nexusRepositoryUrl
             credentials {

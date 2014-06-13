@@ -670,6 +670,13 @@ public class BannerAdView extends AdView {
 
 	protected void expandToFitParentWidth(int adWidth, int adHeight, AdWebView webview) {
 
+        final View parentView = (View) getParent();
+
+        if(parentView == null){
+            Clog.w(Clog.baseLogTag, "View has no parent (either never created with a parent or was removed), unable to fit to parent width");
+            return;
+        }
+
         final int width = ((View)getParent()).getWidth();
         float ratio_delta = ((float) width)/((float) adWidth);
         int new_height = (int)Math.floor(adHeight*ratio_delta);

@@ -28,10 +28,12 @@ import android.net.Uri;
 import android.net.http.SslError;
 import android.os.Build;
 import android.os.Handler;
-import android.text.Layout;
 import android.util.DisplayMetrics;
 import android.util.Pair;
-import android.view.*;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -40,7 +42,6 @@ import android.widget.ProgressBar;
 import android.widget.Toast;
 import com.appnexus.opensdk.AdView.BrowserStyle;
 import com.appnexus.opensdk.utils.*;
-
 import java.util.HashMap;
 import java.util.LinkedList;
 
@@ -105,6 +106,9 @@ class AdWebView extends WebView implements Displayable {
     }
 
     public void loadAd(AdResponse ad) {
+        if(ad==null){
+            return;
+        }
         String html = ad.getContent();
         // Safety Check: content is verified in AdResponse, so this should never be empty
         if (StringUtil.isEmpty(html)) {

@@ -1,2 +1,4 @@
 include 'sdk'
 include 'mediation:mediatedviews:GooglePlay'
+include 'mediation:mediatedviews:MillennialMedia'
+

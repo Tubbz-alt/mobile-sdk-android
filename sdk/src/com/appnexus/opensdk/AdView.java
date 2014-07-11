@@ -188,7 +188,11 @@ public abstract class AdView extends FrameLayout {
 		return false;
 	}
 
-    protected void loadAdOffscreen() {
+    /**
+     * Loads a new ad.  You should have called setPlacementID
+     * before invoking this method.
+     */
+    public void loadAdOffscreen() {
         if (!isReadyToStart())
             return;
         if (mAdFetcher != null) {

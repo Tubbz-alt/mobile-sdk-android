@@ -188,13 +188,15 @@ public class BannerAdView extends AdView {
                     Clog.d(Clog.baseLogTag,
                             Clog.getString(R.string.screen_off_stop));
                 } else if (intent.getAction().equals(Intent.ACTION_SCREEN_ON)) {
-                    if (auto_refresh)
+                    if (auto_refresh) {
                         start();
-                    else if (shouldReloadOnResume)
+                    }
+                    else if (shouldReloadOnResume) {
                         stop();
-                    start();
-                    Clog.d(Clog.baseLogTag,
-                            Clog.getString(R.string.screen_on_start));
+                        start();
+                        Clog.d(Clog.baseLogTag,
+                                Clog.getString(R.string.screen_on_start));
+                    }
                 }
             }
         };
